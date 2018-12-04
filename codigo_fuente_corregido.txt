@@ -1,0 +1,437 @@
+#include <stdio.h>
+#include <windows.h>
+#include <string.h>
+ #include <unistd.h>
+typedef  struct{
+    int nombre;
+    int tllegada;
+    int duracion;
+    int tpermanencia;
+    int trespuesta;
+    int tespera;
+    int trestante;
+}Proceso;
+
+void cpu(Proceso p[], int total, int np, int q,FILE *fw);
+void RoundRobin(Proceso p[],int n,int quantum, char *ruta);
+ 
+ 
+void existeFichero(char *fichero,char *ruta);
+int leerQuantum(char *res, FILE *fich);
+int nprocesos(char *res, FILE *fich);
+void leerprocesos(char *res, FILE *fich,int np, Proceso a[]);
+/******************************************************************************+
+******************************************************************************+
+*******************************************************************************/
+void cpu(Proceso p[], int total, int np, int q,FILE *fw){
+    int i, j, x, auxq=0, contadorcola=-1,aux=0, auxc=0, counter=0;
+     Proceso colaDentro[np];
+     Proceso colaAux[np];
+     Proceso cpup, auxpro;
+     
+    for(i=0;i<np;i++) {
+          p[i].trestante=p[i].duracion;
+    }
+     
+     
+    for(i=0;i<total+1;i++){
+        if(counter==1){   //Variable de la bandera, esta a 0 cuando no se esta ejecutando ningun proceso y a 1 cuando entra el primer proceso.
+        //CONTROL DE COLA DE PROCESOS//
+       
+        //Si el quantum termina y no hay procesos en cola sigue el mismo proceso en ejecucion
+        if(q==auxq&&contadorcola==0&&i<total){
+            fprintf(fw,"|P%d____",cpup.nombre);
+                auxc++;
+            auxq=0; //Restablece el quantum
+        }
+         
+        //Si el proceso en el procesador termina su tiempo de ejecucion
+        if(cpup.trestante==0){
+            for(x=0;x<np;x++) {                        
+            if(p[x].nombre==cpup.nombre) { //Busca el proceso que acaba de terminar por nombre
+                p[x].tpermanencia=i-p[x].tllegada; //Guarda el tiempo de permanencia del proceso que acaba de terminar
+            }
+            }
+                cpup=colaDentro[0]; //Introduce en el procesador el primer proceso en cola
+                for(x=0;x<contadorcola;x++)colaAux[x]=colaDentro[x];  //Adelanta procesos de la cola una posici¨®n
+                for(x=0;x<contadorcola;x++)colaDentro[x]=colaAux[x+1];
+                contadorcola--; //Resta del contador el proceso que acaba de terminar
+                auxq=0; //Restablece el quantum
+                if(i!=total){
+                    fprintf(fw,"|P%d____",cpup.nombre);
+                    auxc++;
+                }
+                else fprintf(fw,"|");
+        }
+       
+       
+       
+        //Si el quantum termina pero el proceso no
+        if(auxq==q&&cpup.trestante!=0){            
+            auxpro=cpup;            //Guarda el proceso que va a salir en aux
+            cpup=colaDentro[0];     //Introduce en procesador el primer proceso en cola
+            for(x=0;x<contadorcola;x++)colaAux[x]=colaDentro[x];    //Adelanta procesos de la cola una posici¨®n
+            for(x=0;x<contadorcola;x++)colaDentro[x]=colaAux[x+1];
+            colaDentro[contadorcola-1]=auxpro;  //Introduce el proceso que sale de procesador al final de la cola
+            fprintf(fw,"|P%d",cpup.nombre);
+            auxq=0; //Restablece el quantum
+        }
+        }
+        else fprintf(fw,"____");
+        //Si el proceso entra a ejecucion por primera vez se guarda tu tiempo de respuesta
+        if(cpup.trestante==cpup.duracion)for(x=0;x<np;x++) {                        
+            if(p[x].nombre==cpup.nombre) {
+                p[x].trespuesta=i-p[x].tllegada;
+            }
+            }
+       
+            //Cada ciclo comprobamos si llega algun proceso
+          for(j=0;j<np;j++){
+             if((counter==1)&&(p[j].tllegada==i)){
+                    contadorcola++;
+                    colaDentro[contadorcola-1]=p[j];
+                        }
+             //Solo para el primer proceso que entra
+             if((counter==0)&&(p[j].tllegada==i)) {
+                    cpup=p[j];
+                    fprintf(fw,"|P%d____",cpup.nombre);
+                    auxc++;
+                    contadorcola++;
+                    counter++;
+                        }
+           }
+           
+        //Cuando el primer proceso entra en ejecucion se guarda su tiempo de respuesta. Los demas tienen su if arriba.
+        if((aux==0)&&(cpup.trestante==cpup.duracion))for(x=0;x<np;x++) {                        
+            if(p[x].nombre==cpup.nombre) {
+                p[x].trespuesta=i-p[x].tllegada;
+                aux++;
+            }
+            }
+            if(contadorcola>=0){
+          //Fin tiempos de llegada
+         
+          //Procesando procesos
+          //Si el proceso no ha estado el numero de ciclos del quanto
+            if(auxq<q){                              
+                auxq++; //Se a?ade un ciclo al contador de ciclos
+                cpup.trestante--; //Se resta un ciclo al contador de ciclos restantes
+                if(auxc==0)fprintf(fw,"____");
+                else auxc--;
+            }
+                }
+            }
+          //Fin procesando procesos
+    }
+       
+   
+void RoundRobin(Proceso p[],int n,int quantum, char *ruta)
+{
+      int i, x,j, total, sumaprocesos=0,contadorcola=0, auxq=0;
+      float cpuporcentaje=0.0;
+      int minllegada=p[0].tllegada;
+      char aux[100];
+      sprintf(aux,"%sRR.txt", ruta);
+      FILE *fw= fopen(aux,"w");
+      for(i=0;i<n;i++)  
+      {
+          if(p[i].tllegada<minllegada) minllegada=p[i].tllegada;
+          sumaprocesos+=p[i].duracion;
+      }
+      total=minllegada+sumaprocesos;
+       
+     
+      fprintf(fw,"\n\n");
+      cpu(p, total, n, quantum,fw);
+      fprintf(fw,"\n  ");
+      for(i=0;i<total+1;i++)fprintf(fw,"%d    ", i);
+      fprintf(fw,"\n\n");
+     
+      for (i=0;i<n;i++){
+          p[i].tespera=p[i].tpermanencia-p[i].duracion;
+      }
+ 
+      cpuporcentaje=(float)(total-minllegada)/total;
+     
+      fprintf(fw,"\tNombre\tTejecucion\tTpermanencia\tTrespuesta\tTespera\n");
+      for(i=0;i<n;i++)  //para hacer los porcentajes de uso de cpu buscamos el tiempo de llegada mas peque?o
+      {
+          fprintf(fw,"\n\tP%d\t%d\t\t%d\t\t%d\t\t%d\n",p[i].nombre,p[i].duracion,p[i].tpermanencia, p[i].trespuesta, p[i].tespera);
+      }
+      fprintf(fw,"\nUso CPU: %f%c \n", 100*cpuporcentaje,'%');
+      fclose(fw);   
+}
+ 
+/*****************************************************************************
+******************************************************************************
+******************************************************************************/
+ 
+ 
+ void ordenarat(Proceso p[],int n, char *ruta);
+void ordenarbt(Proceso p[],int n,FILE *fw);
+void calculartiempos(Proceso p[],int n, FILE *fw);
+void mostrarinfo(Proceso p[],int n, FILE *fw);
+void print_gantt_chart(Proceso p[], int n, int b, FILE *fw);
+ 
+void ordenarat(Proceso p[],int n, char *ruta){ //Ordena por tiempo de llegada //FUNCIONAL.
+    int i,j;
+    Proceso aux;
+    FILE *fw;
+    char auxruta[100];
+ 
+   sprintf(auxruta,"%sSJF.txt", ruta);
+    fw = fopen(auxruta,"w");
+    for(i=0;i<n;i++){
+        for(j=i+1;j<n;j++){
+         if(p[i].tllegada>p[j].tllegada){      // Si el tiempo del proceso i es mayor que j hacemos que i vaya despues que j.
+         
+            aux=p[j];
+            p[j]=p[i];
+            p[i]=aux;
+            }
+        }
+    }
+    ordenarbt(p,n,fw);
+   
+}
+ 
+void ordenarbt(Proceso p[],int n,FILE *fw){  // Ordena en función de la rafaga //FUNCIONAL
+    int i,j,total;
+    Proceso aux;
+    total=p[0].duracion;
+    for(i=1;i<n;i++){
+        total=total+p[i].duracion;
+        for(j=i+1;j<n;j++){
+         if(total>p[i].tllegada && p[i].duracion>p[j].duracion ){  //Si llega un proceso mientras se est?ejecutando otro
+             
+            aux=p[j];
+            p[j]=p[i];
+            p[i]=aux;
+            }
+           }
+        }
+   
+    calculartiempos(p,n,fw);
+}
+void calculartiempos(Proceso p[],int n,FILE *fw){
+    int tiempototal,i,j;
+    float usocpu;
+    p[0].tespera=0;                             //El tiempo de espera del primero en llegar es 0.
+    p[0].tpermanencia=p[0].duracion;                    //el tiempo de permanencia del p0 es su tiempo de rafaga.
+    tiempototal=p[0].duracion+p[0].tllegada;    // Como sólo tratamos en el bucle de P1 hasta el ultimo inicializamos tiempototal como el tiempo de P0;
+    for(i=1;i<n;i++){
+ 
+   
+   
+   
+        p[i].tespera=tiempototal-p[i].tllegada;
+        p[i].tpermanencia=p[i].tespera+p[i].duracion;
+        tiempototal+=p[i].duracion;
+    }
+ 
+   
+    mostrarinfo(p,n,fw); // FUNCIONAL
+    usocpu=(float)(tiempototal-p[0].tllegada)/tiempototal*100;
+    fprintf(fw,"El uso del CPU es un %f %%  %d/%d ",usocpu,tiempototal-p[0].tllegada,tiempototal);
+    print_gantt_chart(p,n,tiempototal,fw);
+    fclose(fw);
+}
+ 
+void mostrarinfo(Proceso p[],int n,FILE *fw){
+    int i;
+   
+    fprintf(fw,"\n\tProceso\tLlegada\tDuracion\tPermanencia\tEspera\n");
+    for(i=0;i<n;i++)
+        fprintf(fw,"\n\tP%d\t%d\t%d\t\t%d\t\t%d\n",p[i].nombre,p[i].tllegada,p[i].duracion,p[i].tpermanencia,p[i].tespera);
+   
+   
+    fprintf(fw," El tiempo de respuesta en los algoritmos SJF coincide con el tiempo de espera, por eso no esta incluido \n");
+}
+ 
+void print_gantt_chart(Proceso p[], int n,int b, FILE *fw)
+{
+   int i, j=0;
+  fprintf(fw,"Tiempo \n");
+  for(i=0;i<p[0].tllegada;i++){
+ 
+    fprintf(fw,"____");
+   
+}
+ 
+  for(i=p[0].tllegada;i<b;i++){
+   
+   
+  if(i==p[j].tespera+p[j].tllegada &&j<n)     // Si empieza un proceso (cuenta como tiempo de ejecuci?n tambien)
+  {
+    fprintf(fw,"|P%d__",p[j].nombre);           //Ponemos su id
+    j++;
+  }else
+  {
+    fprintf(fw,"____");
+}
+ 
+ 
+}
+  fprintf(fw,"________|\n");
+    for(i=0;i<b+1;i++)fprintf(fw,"%d   ", i);
+      fprintf(fw,"\n\n");
+     
+}
+ 
+ 
+ 
+ 
+ 
+/******************************************************************
+** existeFichero: *************************************************
+** Comprueba que el fichero existe y en caso afirmativo permite
+** continuar la ejecucion del programa, en caso de que no exista
+** detiene la ejecucion.
+******************************************************************/
+void existeFichero(char *fichero, char *ruta){
+HANDLE hFind;
+WIN32_FIND_DATA datos;
+if(!SetCurrentDirectory(ruta)){
+        printf("Error %d. No se pudo acceder al directorio\n", GetLastError());
+        Sleep(10000);
+	exit(1);
+    }
+	hFind = FindFirstFile(fichero, &datos); //Crea un handler que apunta a la direccion pasada por referencia.
+   if (hFind!=INVALID_HANDLE_VALUE){  //Si el handler no da error se continua la ejecucion del programa.
+        FindClose(hFind);        
+    }
+   else {
+       printf("No se ha encontrado el fichero");
+    Sleep(2000);
+    exit(1);
+   }
+}
+ 
+ 
+/******************************************************************
+** leerQuantum: *************************************************
+** Comprueba que el fichero existe y en caso afirmativo permite
+** continuar la ejecucion del programa, en caso de que no exista
+** detiene la ejecucion.
+******************************************************************/
+ 
+int leerQuantum(char *res, FILE *fich){
+int quantum;
+char cadena[100], formato[8]="quantum", auxformat[100];
+res = fgets(cadena,100,fich);
+sscanf(res,"%[a-z0-9]:%d\n",auxformat, &quantum);
+if (quantum==0||strcmp(formato,auxformat)) {
+    printf("El formato de quantum es incorrecto. Escribalo con el siguiente formato: quantum:n \n");
+    Sleep(2000);
+    exit(1);
+}
+else {
+ printf("El valor del quantum es %d\n", quantum);
+return quantum;
+}
+}
+ 
+int nprocesos(char *res, FILE *fich){
+int nprocesos;
+char cadena[100], formato[8]="nproces", auxformat[100];
+res = fgets(cadena,100,fich);
+sscanf(res,"%[a-z0-9]:%d\n",auxformat, &nprocesos);
+if (nprocesos==0||strcmp(formato,auxformat)){
+    printf("El formato de nprocesos es incorrecto. Escribalo con el siguiente formato: nprocesos:n \n");
+    Sleep(2000);
+    exit(1);
+}
+else {
+return nprocesos;
+}
+}
+ 
+void leerprocesos(char *res, FILE *fich,int np, Proceso a[]){
+int i=0, aux=0;
+char cadena[100], cadenaux[100], cadenaux2[100], formato[26]="proceso: llegada duracion", auxformat[100];
+res = fgets(cadena,100,fich);   //Lee la linea
+sscanf(res, "%s\n",auxformat);  //Obtiene datos de la linea
+if (strcmp(formato,auxformat)){ //Compara si el formato de la linea es correcto
+    printf("\n\tNombre\tTllegada\tTduracion\n");
+do{
+res = fgets(cadena,100,fich);   //Lee la siguiente linea
+if(res!=NULL){                  //Si el archivo no termina
+sprintf(cadenaux, "%s", res);  
+if((cadenaux[0]=='\n')) {       //Si la linea esta en blanco
+    printf("No se ha escrito informacion del proceso en la linea %d. No deje lineas en blanco.\n",i+4);
+}
+else {
+sscanf(cadenaux,"%d: %d %d\n",&a[i].nombre, &a[i].tllegada, &a[i].duracion);    //Lee los datos del proceso
+
+if(/*strcmp(cadenaux2,cadenaux)*/a[i].nombre<100000 && a[i].duracion<100000 && a[i].tllegada<100000)printf("\n\t%d\t%d\t\t%d\n", a[i].nombre, a[i].tllegada, a[i].duracion);
+else {
+    printf("Para el proceso en la linea %d no se ha especificado tiempo de llegada, tiempo de duracion o el formato es incorrecto.\n", /*a[i].nombre*/i);
+    Sleep(2000);
+    exit(1);
+}
+aux++; //Variable que cuenta el numero de procesos (lineas) que han sido leidos correctamente.
+}
+i++; //Variable que cuenta el numero de lineas leidas, contando lineas en blanco.
+}
+}while (i<np);
+}
+else {
+    printf("Formato incorrecto. Escriba proceso: duracion llegada\n Antes de introducir los datos de los procesos.\n");
+}
+if (aux!=np){
+    printf("No se ha especificado informacion del numero de procesos ingresado.\n");
+    Sleep(2000);
+    exit(1);
+}
+printf("\n\n");
+}
+ 
+ 
+void leer(char *fich){
+int quantum, nproceso;
+
+char ruta[100],ruta2[100];
+
+if (getcwd(ruta, sizeof(ruta)) != NULL)
+       existeFichero(fich,ruta);
+   else
+       printf("Error no se encuentra el directorio\n");
+
+
+
+sprintf(ruta2,"%s\\%s",ruta,fich);
+sprintf(ruta,"%s\\",ruta);
+
+
+FILE *file= fopen(ruta2,"r");
+char *res;
+quantum= leerQuantum(res, file);
+nproceso= nprocesos(res, file);
+Proceso processT[nproceso];
+leerprocesos(res, file, nproceso, processT);
+RoundRobin(processT,nproceso,quantum,ruta);
+ordenarat(processT,nproceso,ruta);
+fclose(file);
+printf("Sus ficheros han sido guardados en el directorio %s.", ruta);
+
+
+}
+ 
+int main (int argc, char *argv[]) {
+    
+    if(argc<2){
+        printf("Primero acceda al directorio de trabajo del fichero de entrada\ny escriba: nombreejecutable nombrefichero.txt\n");
+        sleep(5000);
+        exit(1);
+    }
+
+    if(strlen(argv[1])>1){
+        leer(argv[1]);       
+    }
+    else{
+        printf("Escriba un nombre de fichero valido");        
+    }
+
+printf("\nEl programa se cerrara automaticamente en 20 segundos.");
+Sleep(20000);
+}

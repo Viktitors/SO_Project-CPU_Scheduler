@@ -1,0 +1,8 @@
+quantum:2
+nproces:5
+proceso: llegada duracion
+0: 3 9
+1: 5 3
+2: 7 2
+3: 8 5
+4: 11 1
